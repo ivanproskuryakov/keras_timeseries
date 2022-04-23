@@ -4,3 +4,4 @@ matplotlib
 pydot
 graphviz
 tensorflow-macos
+sklearn
