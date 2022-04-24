@@ -304,7 +304,7 @@ the `EarlyStopping` callback to interrupt training when the validation loss
 is not longer improving.
 """
 
-path_checkpoint = "model_checkpoint.h5"
+path_checkpoint = "out/model_checkpoint.h5"
 es_callback = keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=0, patience=5)
 
 modelckpt_callback = keras.callbacks.ModelCheckpoint(
