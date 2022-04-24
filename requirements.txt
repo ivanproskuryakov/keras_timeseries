@@ -5,3 +5,5 @@ pydot
 graphviz
 tensorflow-macos
 sklearn
+termplotlib
+tqdm

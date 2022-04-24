@@ -1,6 +1,7 @@
 # Time Series Prediction with LSTM Recurrent Neural Networks in Python with Keras
 # base on tutorial of Jason Brownlee
 # source https://github.com/ivanarielcaceres/timeseries-lstm-keras
+# https://www.kaggle.com/code/ternaryrealm/lstm-time-series-explorations-with-keras/notebook
 
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
