@@ -79,8 +79,9 @@ class WindowGenerator:
 
         return inputs, labels
 
-    def plot(self, inputs, labels, model=None, plot_col='T (degC)', max_subplots=3):
-        # inputs, labels = self.example
+    def plot(self, model=None, plot_col='T (degC)', max_subplots=3):
+        inputs, labels = self.example
+
         plt.figure(figsize=(12, 8))
         plot_col_index = self.column_indices[plot_col]
         max_n = min(max_subplots, len(inputs))

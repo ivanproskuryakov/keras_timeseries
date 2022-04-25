@@ -1,19 +1,15 @@
 # url https://www.tensorflow.org/tutorials/structured_data/time_series
 
 
-import os
-import datetime
-
-import IPython
-import IPython.display
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 # import seaborn as sns
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
-from window_generator import WindowGenerator
+from timeseries.window_generator import WindowGenerator
+from timeseries.baseline import Baseline
 
 mpl.rcParams['figure.figsize'] = (8, 6)
 mpl.rcParams['axes.grid'] = False
@@ -55,6 +51,12 @@ df['wv (m/s)'].min()
 # plt.ylabel('Wind Velocity [m/s]')
 
 
+# Feature engineering
+# ------------------------------------------------------------------
+
+# Wind
+# ----
+
 wv = df.pop('wv (m/s)')
 max_wv = df.pop('max. wv (m/s)')
 
@@ -78,6 +80,9 @@ df['max Wy'] = max_wv * np.sin(wd_rad)
 
 # plt.show()
 
+
+# Time
+# ----
 
 day = 24 * 60 * 60
 year = (365.2425) * day
@@ -119,6 +124,7 @@ f_per_year = f_per_dataset / years_per_dataset
 
 
 # Split the data
+# --------------
 
 column_indices = {name: i for i, name in enumerate(df.columns)}
 
@@ -130,6 +136,7 @@ test_df = df[int(n * 0.9):]
 num_features = df.shape[1]
 
 # Normalize the data
+# ------------------
 
 train_mean = train_df.mean()
 train_std = train_df.std()
@@ -138,19 +145,18 @@ train_df = (train_df - train_mean) / train_std
 val_df = (val_df - train_mean) / train_std
 test_df = (test_df - train_mean) / train_std
 
-# df_std = (df - train_mean) / train_std
-# df_std = df_std.melt(var_name='Column', value_name='Normalized')
-# plt.figure(figsize=(12, 6))
-# ax = sns.violinplot(x='Column', y='Normalized', data=df_std)
-# _ = ax.set_xticklabels(df.keys(), rotation=90)
-
-# plt.show()
-# Data windowing
-
-
 # WindowGenerator
 # ------------------------------------------------------------------
 
+single_step_window = WindowGenerator(
+    input_width=1,
+    label_width=1,
+    shift=1,
+    label_columns=['T (degC)'],
+    train_df=train_df,
+    val_df=val_df,
+    test_df=test_df,
+)
 w1 = WindowGenerator(
     input_width=24,
     label_width=1,
@@ -160,8 +166,6 @@ w1 = WindowGenerator(
     val_df=val_df,
     test_df=test_df,
 )
-print(w1)
-
 w2 = WindowGenerator(
     input_width=6,
     label_width=1,
@@ -171,12 +175,6 @@ w2 = WindowGenerator(
     val_df=val_df,
     test_df=test_df,
 )
-print(w2)
-
-
-
-# Stack three slices, the length of the total window.
-# ------------------------------------------------------------------
 
 example_window = tf.stack([
     np.array(train_df[:w2.total_window_size]),
@@ -191,28 +189,9 @@ print(f'Window shape: {example_window.shape}')
 print(f'Inputs shape: {example_inputs.shape}')
 print(f'Labels shape: {example_labels.shape}')
 
-# w2.plot(example_inputs, example_labels)
-# w2.plot(example_inputs, example_labels, plot_col='p (mbar)')
-#
-# plt.show()
-
-
-print(w2.train.element_spec)
-
-
-for example_inputs, example_labels in w2.train.take(1):
-    print(f'Inputs shape (batch, time, features): {example_inputs.shape}')
-    print(f'Labels shape (batch, time, features): {example_labels.shape}')
-
-
-
-
-# single_step_window
-# ------------------------------------------------------------------
-
-single_step_window = WindowGenerator(
-    input_width=1,
-    label_width=1,
+wide_window = WindowGenerator(
+    input_width=24,
+    label_width=24,
     shift=1,
     label_columns=['T (degC)'],
     train_df=train_df,
@@ -220,6 +199,23 @@ single_step_window = WindowGenerator(
     test_df=test_df,
 )
 
-for example_inputs, example_labels in single_step_window.train.take(1):
-  print(f'Inputs shape (batch, time, features): {example_inputs.shape}')
-  print(f'Labels shape (batch, time, features): {example_labels.shape}')
+
+baseline = Baseline(label_index=column_indices['T (degC)'])
+
+baseline.compile(loss=tf.losses.MeanSquaredError(),
+                 metrics=[tf.metrics.MeanAbsoluteError()])
+
+val_performance = {}
+performance = {}
+val_performance['Baseline'] = baseline.evaluate(single_step_window.val)
+performance['Baseline'] = baseline.evaluate(single_step_window.test, verbose=0)
+
+print(wide_window)
+
+print('Input shape:', wide_window.example[0].shape)
+print('Output shape:', baseline(wide_window.example[0]).shape)
+
+
+wide_window.plot(baseline)
+
+plt.show()
