@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 
 from timeseries.window_generator import WindowGenerator
 from timeseries.baseline import Baseline
+from timeseries.linear import compile_and_fit
 
 mpl.rcParams['figure.figsize'] = (8, 6)
 mpl.rcParams['axes.grid'] = False
@@ -148,47 +149,6 @@ test_df = (test_df - train_mean) / train_std
 # WindowGenerator
 # ------------------------------------------------------------------
 
-single_step_window = WindowGenerator(
-    input_width=1,
-    label_width=1,
-    shift=1,
-    label_columns=['T (degC)'],
-    train_df=train_df,
-    val_df=val_df,
-    test_df=test_df,
-)
-w1 = WindowGenerator(
-    input_width=24,
-    label_width=1,
-    shift=24,
-    label_columns=['T (degC)'],
-    train_df=train_df,
-    val_df=val_df,
-    test_df=test_df,
-)
-w2 = WindowGenerator(
-    input_width=6,
-    label_width=1,
-    shift=1,
-    label_columns=['T (degC)'],
-    train_df=train_df,
-    val_df=val_df,
-    test_df=test_df,
-)
-
-example_window = tf.stack([
-    np.array(train_df[:w2.total_window_size]),
-    np.array(train_df[100:100 + w2.total_window_size]),
-    np.array(train_df[200:200 + w2.total_window_size])
-])
-
-example_inputs, example_labels = w2.split_window(example_window)
-
-print('All shapes are: (batch, time, features)')
-print(f'Window shape: {example_window.shape}')
-print(f'Inputs shape: {example_inputs.shape}')
-print(f'Labels shape: {example_labels.shape}')
-
 wide_window = WindowGenerator(
     input_width=24,
     label_width=24,
@@ -199,23 +159,72 @@ wide_window = WindowGenerator(
     test_df=test_df,
 )
 
+single_step_window = WindowGenerator(
+    input_width=1,
+    label_width=1,
+    shift=1,
+    label_columns=['T (degC)'],
+    train_df=train_df,
+    val_df=val_df,
+    test_df=test_df,
+)
+
+val_performance = {}
+performance = {}
+
+# 1. Baseline
+# ------------------------------------------------------------------
+# Before building a trainable model it would be good to have a performance baseline as a point
+# for comparison with the later more complicated models.
+
+# This first task is to predict temperature one hour into the future, given the current value of all features.
+# The current values include the current temperature.
+
+# So, start with a model that just returns the current temperature as the prediction, predicting "No change".
+# This is a reasonable baseline since temperature changes slowly. Of course, this baseline will work less well
+# if you make a prediction further in the future.
 
 baseline = Baseline(label_index=column_indices['T (degC)'])
 
 baseline.compile(loss=tf.losses.MeanSquaredError(),
                  metrics=[tf.metrics.MeanAbsoluteError()])
 
-val_performance = {}
-performance = {}
 val_performance['Baseline'] = baseline.evaluate(single_step_window.val)
 performance['Baseline'] = baseline.evaluate(single_step_window.test, verbose=0)
 
-print(wide_window)
 
-print('Input shape:', wide_window.example[0].shape)
-print('Output shape:', baseline(wide_window.example[0]).shape)
+# print(wide_window)
+#
+# print('Input shape:', wide_window.example[0].shape)
+# print('Output shape:', baseline(wide_window.example[0]).shape)
+#
+#
+# wide_window.plot(baseline)
+#
+# plt.show()
 
 
-wide_window.plot(baseline)
+
+# 2. Linear model
+# ------------------------------------------------------------------
+# The simplest trainable model you can apply to this task is to insert linear
+# transformation between the input and output. In this case the output from a time
+# step only depends on that step:
+
+
+linear = tf.keras.Sequential([
+    tf.keras.layers.Dense(units=1)
+])
+
+print('Input shape:', single_step_window.example[0].shape)
+print('Output shape:', linear(single_step_window.example[0]).shape)
+
+history = compile_and_fit(linear, single_step_window)
+
+val_performance['Linear'] = linear.evaluate(single_step_window.val)
+performance['Linear'] = linear.evaluate(single_step_window.test, verbose=0)
+
+
+wide_window.plot(linear)
 
 plt.show()
