@@ -7,3 +7,5 @@ tensorflow-macos
 sklearn
 termplotlib
 tqdm
+IPython
+seaborn
