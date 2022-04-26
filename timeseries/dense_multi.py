@@ -13,11 +13,8 @@ from base import compile_and_fit, conv_window
 # issue the model needs access to multiple time steps when making predictions
 
 
-conv_window.plot()
-
-# plt.title("Given 3 hours of inputs, predict 1 hour into the future.")
-# plt.show()
-
+val_performance = {}
+performance = {}
 
 multi_step_dense = tf.keras.Sequential([
     # Shape: (time, features) => (time*features)
@@ -34,17 +31,11 @@ multi_step_dense = tf.keras.Sequential([
 print('Input shape:', conv_window.example[0].shape)
 print('Output shape:', multi_step_dense(conv_window.example[0]).shape)
 
-
 history = compile_and_fit(multi_step_dense, conv_window)
-
-
-val_performance = {}
-performance = {}
 
 IPython.display.clear_output()
 val_performance['Multi step dense'] = multi_step_dense.evaluate(conv_window.val)
 performance['Multi step dense'] = multi_step_dense.evaluate(conv_window.test, verbose=0)
-
 
 conv_window.plot(multi_step_dense)
 

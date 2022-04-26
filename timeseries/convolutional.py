@@ -38,6 +38,7 @@ IPython.display.clear_output()
 val_performance['Conv'] = conv_model.evaluate(conv_window.val)
 performance['Conv'] = conv_model.evaluate(conv_window.test, verbose=0)
 
+
 print("Wide window")
 print('Input shape:', wide_window.example[0].shape)
 print('Labels shape:', wide_window.example[1].shape)
