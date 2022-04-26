@@ -1,21 +1,14 @@
 # url https://www.tensorflow.org/tutorials/structured_data/time_series
 
-
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
-# import seaborn as sns
 import tensorflow as tf
-import matplotlib.pyplot as plt
+import os
 
-from timeseries.window_generator import WindowGenerator
-from timeseries.baseline import Baseline
-from timeseries.linear import compile_and_fit
+from window_generator import WindowGenerator
 
-mpl.rcParams['figure.figsize'] = (8, 6)
-mpl.rcParams['axes.grid'] = False
-
-csv_path = "data/jena_climate_2009_2016.csv"
+csv_path = os.getcwd() + '/data/jena_climate_2009_2016.csv'
 df = pd.read_csv(csv_path)
 
 # Slice [start:stop:step], starting from index 5 take every 6th record.
@@ -169,62 +162,43 @@ single_step_window = WindowGenerator(
     test_df=test_df,
 )
 
-val_performance = {}
-performance = {}
+conv_window = WindowGenerator(
+    input_width=3,
+    label_width=1,
+    shift=1,
+    label_columns=['T (degC)'],
+    train_df=train_df,
+    val_df=val_df,
+    test_df=test_df,
+)
 
-# 1. Baseline
-# ------------------------------------------------------------------
-# Before building a trainable model it would be good to have a performance baseline as a point
-# for comparison with the later more complicated models.
-
-# This first task is to predict temperature one hour into the future, given the current value of all features.
-# The current values include the current temperature.
-
-# So, start with a model that just returns the current temperature as the prediction, predicting "No change".
-# This is a reasonable baseline since temperature changes slowly. Of course, this baseline will work less well
-# if you make a prediction further in the future.
-
-baseline = Baseline(label_index=column_indices['T (degC)'])
-
-baseline.compile(loss=tf.losses.MeanSquaredError(),
-                 metrics=[tf.metrics.MeanAbsoluteError()])
-
-val_performance['Baseline'] = baseline.evaluate(single_step_window.val)
-performance['Baseline'] = baseline.evaluate(single_step_window.test, verbose=0)
+wide_conv_window = WindowGenerator(
+    input_width=26,
+    label_width=24,
+    shift=1,
+    label_columns=['T (degC)'],
+    train_df=train_df,
+    val_df=val_df,
+    test_df=test_df,
+)
 
 
-# print(wide_window)
-#
-# print('Input shape:', wide_window.example[0].shape)
-# print('Output shape:', baseline(wide_window.example[0]).shape)
-#
-#
-# wide_window.plot(baseline)
-#
-# plt.show()
+def compile_and_fit(model, window, patience=2):
+    early_stopping = tf.keras.callbacks.EarlyStopping(
+        monitor='val_loss',
+        patience=patience,
+        mode='min'
+    )
+    model.compile(
+        loss=tf.losses.MeanSquaredError(),
+        optimizer=tf.optimizers.Adam(),
+        metrics=[tf.metrics.MeanAbsoluteError()]
+    )
+    history = model.fit(
+        window.train,
+        epochs=20,
+        validation_data=window.val,
+        callbacks=[early_stopping]
+    )
 
-
-
-# 2. Linear model
-# ------------------------------------------------------------------
-# The simplest trainable model you can apply to this task is to insert linear
-# transformation between the input and output. In this case the output from a time
-# step only depends on that step:
-
-
-linear = tf.keras.Sequential([
-    tf.keras.layers.Dense(units=1)
-])
-
-print('Input shape:', single_step_window.example[0].shape)
-print('Output shape:', linear(single_step_window.example[0]).shape)
-
-history = compile_and_fit(linear, single_step_window)
-
-val_performance['Linear'] = linear.evaluate(single_step_window.val)
-performance['Linear'] = linear.evaluate(single_step_window.test, verbose=0)
-
-
-wide_window.plot(linear)
-
-plt.show()
+    return history
