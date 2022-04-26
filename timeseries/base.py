@@ -182,6 +182,16 @@ wide_conv_window = WindowGenerator(
     test_df=test_df,
 )
 
+multi_window = WindowGenerator(
+    input_width=24,
+    label_width=24,
+    shift=24,
+    label_columns=['T (degC)'],
+    train_df=train_df,
+    val_df=val_df,
+    test_df=test_df,
+)
+
 
 def compile_and_fit(model, window, patience=2):
     early_stopping = tf.keras.callbacks.EarlyStopping(
